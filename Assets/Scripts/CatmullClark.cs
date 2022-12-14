@@ -16,23 +16,81 @@ public class CCMeshData
 
 public static class CatmullClark
 {
+    private static List<List<Vector4>> edgesPerPoints = new List<List<Vector4>>();
     // Returns a QuadMeshData representing the input mesh after one iteration of Catmull-Clark subdivision.
     public static QuadMeshData Subdivide(QuadMeshData quadMeshData)
     {
         // Create and initialize a CCMeshData corresponding to the given QuadMeshData
         CCMeshData meshData = new CCMeshData();
+
         meshData.points = quadMeshData.vertices;
         meshData.faces = quadMeshData.quads;
+        for (int i=0; i < meshData.points.Count; i++)
+        {
+            edgesPerPoints.Add(new List<Vector4>());
+        }
+
         meshData.edges = GetEdges(meshData);
         meshData.facePoints = GetFacePoints(meshData);
         meshData.edgePoints = GetEdgePoints(meshData);
         meshData.newPoints = GetNewPoints(meshData);
 
         // Combine facePoints, edgePoints and newPoints into a subdivided QuadMeshData
+        int facePointsStrtIdx = meshData.newPoints.Count;
+        Dictionary<Vector2, int> edgesIndices = new Dictionary<Vector2, int>();
+        List<Vector3> vertics = getNewVertics(meshData, edgesIndices);
+        List<Vector4> faces = getNewFaces(meshData, edgesIndices, facePointsStrtIdx);
+        return new QuadMeshData(vertics, faces);
+    }
 
-        // Your implementation here...
+    private static List<Vector3> getNewVertics(CCMeshData meshData, Dictionary<Vector2, int> edgesIndices)
+    {
+        List<Vector3> vertics = meshData.newPoints;
+        foreach (var facePoint in meshData.facePoints){
+            vertics.Add(facePoint);
+        }
+        int edgePointsStrtIdx = vertics.Count;
+        for (int i = 0; i < meshData.edgePoints.Count; i++)
+        {
+            vertics.Add(meshData.edgePoints[i]);
+            int p1 = (int) meshData.edges[i].x;
+            int p2 = (int) meshData.edges[i].y;
+            edgesIndices[orderPoints(p1, p2)] = edgePointsStrtIdx + i;
+        }
+        return vertics;
+    }
 
-        return new QuadMeshData();
+    private static List<Vector4> getNewFaces(CCMeshData meshData, Dictionary<Vector2, int> edgesIndices, int facePointsStrtIdx)
+    {
+        List<Vector4> faces = new List<Vector4>();
+        for (int i = 0; i < meshData.faces.Count; i++)
+        {
+            Vector4 curFace = meshData.faces[i];
+            int p1 = (int) curFace.x;
+            int p2 = (int) curFace.y;
+            int p3 = (int) curFace.z;
+            int p4 = (int) curFace.w;
+
+            int facePoint = facePointsStrtIdx + i;
+
+            int edgeP1P2 = edgesIndices[orderPoints(p1, p2)];
+            int edgeP2P3 = edgesIndices[orderPoints(p2, p3)];
+            int edgeP3P4 = edgesIndices[orderPoints(p3, p4)];
+            int edgeP4P1 = edgesIndices[orderPoints(p4, p1)];
+
+            faces.Add(new Vector4(p1, edgeP1P2, facePoint, edgeP4P1));
+            faces.Add(new Vector4(p2, edgeP2P3, facePoint, edgeP1P2));
+            faces.Add(new Vector4(p3, edgeP3P4, facePoint, edgeP2P3));
+            faces.Add(new Vector4(p4, edgeP4P1, facePoint, edgeP3P4));
+        }
+        return faces;
+    }
+
+
+    private static Vector2 orderPoints(int p1, int p2)
+    {
+        if (p1 > p2) (p1, p2) = (p2, p1);
+        return new Vector2(p1, p2);
     }
 
     // Returns a list of all edges in the mesh defined by given points and faces.
@@ -42,29 +100,34 @@ public static class CatmullClark
     public static List<Vector4> GetEdges(CCMeshData mesh)
     {
         Dictionary<Vector2, Vector4> dictionary = new Dictionary<Vector2, Vector4>();
-        for (int j=0; j<mesh.faces.Count; j++)
+        for (int faceNum=0; faceNum < mesh.faces.Count; faceNum++)
         {
             for (int i = 0; i < 4; i++)
             {
-                float p1 = mesh.faces[j][i];
-                float p2 = mesh.faces[j][(i + 1) % 4];
-                Vector2 pointsBack = new Vector2(p2, p1);
-                if (dictionary.ContainsKey(pointsBack))
+                int p1 = (int) mesh.faces[faceNum][i];
+                int p2 = (int) mesh.faces[faceNum][(i + 1) % 4];
+                Vector2 orderedPoints = orderPoints(p1, p2);
+                if (dictionary.ContainsKey(orderedPoints))
                 {
-                    Vector4 edge = dictionary[pointsBack];
-                    edge.w = j;
-                    dictionary[pointsBack] = edge;
+                    Vector4 edge = dictionary[orderedPoints];
+                    edge.w = faceNum;
+                    dictionary[orderedPoints] = edge;
                 }
                 else
                 {
-                    Vector4 edge = new Vector4(p1, p2, j, -1);
-                    dictionary[pointsBack] = edge;
+                    Vector4 edge = new Vector4(orderedPoints[0], orderedPoints[1], faceNum, -1);
+                    dictionary[orderedPoints] = edge;
                 }
             }
         }
         List<Vector4> edges = new List<Vector4>();
         foreach (var edge in dictionary.Values)
+        {
             edges.Add(edge);
+            edgesPerPoints[(int) edge.x].Add(edge);
+            edgesPerPoints[(int) edge.y].Add(edge);
+        }
+       
         return edges;
     }
 
@@ -101,6 +164,29 @@ public static class CatmullClark
     // Returns a list of new locations of the original points for the given CCMeshData, as described in the CC algorithm 
     public static List<Vector3> GetNewPoints(CCMeshData mesh)
     {
-        return null;
+        List<Vector3> newPoints = new List<Vector3>();
+        for (int i=0; i < mesh.points.Count; i++)
+        {
+            int n = edgesPerPoints[i].Count;
+            Vector3 f = Vector3.zero;
+            Vector3 r = Vector3.zero;
+
+            for (int j = 0; j < n; j++)
+            {
+                Vector4 curEdge = edgesPerPoints[i][j];
+                f += mesh.facePoints[(int) curEdge.z];
+                if (curEdge.w != -1)
+                {
+                    f += mesh.facePoints[(int) curEdge.w];
+                }
+                Vector3 edgeMidPoint = (mesh.points[(int) curEdge.x] + mesh.points[(int) curEdge.y]) / 2; 
+                r += edgeMidPoint;
+            }
+            f /= n;
+            r /= n;
+            Vector3 finalPoint =  (f + (2 * r) + (n - 3) * mesh.points[i]) / n;
+            newPoints.Add(finalPoint);
+        }
+        return newPoints;
     }
 }
