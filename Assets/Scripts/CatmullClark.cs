@@ -16,20 +16,14 @@ public class CCMeshData
 
 public static class CatmullClark
 {
-    private static List<List<Vector4>> edgesPerPoints = new List<List<Vector4>>();
+   
     // Returns a QuadMeshData representing the input mesh after one iteration of Catmull-Clark subdivision.
     public static QuadMeshData Subdivide(QuadMeshData quadMeshData)
     {
         // Create and initialize a CCMeshData corresponding to the given QuadMeshData
         CCMeshData meshData = new CCMeshData();
-
         meshData.points = quadMeshData.vertices;
         meshData.faces = quadMeshData.quads;
-        for (int i=0; i < meshData.points.Count; i++)
-        {
-            edgesPerPoints.Add(new List<Vector4>());
-        }
-
         meshData.edges = GetEdges(meshData);
         meshData.facePoints = GetFacePoints(meshData);
         meshData.edgePoints = GetEdgePoints(meshData);
@@ -124,10 +118,7 @@ public static class CatmullClark
         foreach (var edge in dictionary.Values)
         {
             edges.Add(edge);
-            edgesPerPoints[(int) edge.x].Add(edge);
-            edgesPerPoints[(int) edge.y].Add(edge);
         }
-       
         return edges;
     }
 
@@ -164,23 +155,25 @@ public static class CatmullClark
     // Returns a list of new locations of the original points for the given CCMeshData, as described in the CC algorithm 
     public static List<Vector3> GetNewPoints(CCMeshData mesh)
     {
+        List<HashSet<int>> edgesPerPoints = new List<HashSet<int>>();
+        List<HashSet<int>> facesPerPoints = new List<HashSet<int>>();
         List<Vector3> newPoints = new List<Vector3>();
+        CreatePerPoints(mesh, edgesPerPoints, facesPerPoints);
         for (int i=0; i < mesh.points.Count; i++)
         {
             int n = edgesPerPoints[i].Count;
             Vector3 f = Vector3.zero;
             Vector3 r = Vector3.zero;
-
-            for (int j = 0; j < n; j++)
+            foreach (var indEdge in edgesPerPoints[i])
             {
-                Vector4 curEdge = edgesPerPoints[i][j];
-                f += mesh.facePoints[(int) curEdge.z];
-                if (curEdge.w != -1)
-                {
-                    f += mesh.facePoints[(int) curEdge.w];
-                }
-                Vector3 edgeMidPoint = (mesh.points[(int) curEdge.x] + mesh.points[(int) curEdge.y]) / 2; 
+                Vector4 curEdge = mesh.edges[indEdge];
+                Vector3 edgeMidPoint = (mesh.points[(int) curEdge.x] + mesh.points[(int) curEdge.y]) / 2;
                 r += edgeMidPoint;
+            }
+            foreach (var indFace in facesPerPoints[i])
+            {
+                Vector3 curFacePoint = mesh.facePoints[indFace];
+                f += curFacePoint;
             }
             f /= n;
             r /= n;
@@ -188,5 +181,29 @@ public static class CatmullClark
             newPoints.Add(finalPoint);
         }
         return newPoints;
+    }
+
+    private static void CreatePerPoints(CCMeshData mesh, List<HashSet<int>> edgesPerPoints, List<HashSet<int>> facesPerPoints)
+    {
+        int countEdge = 0;
+        for (int i = 0; i < mesh.points.Count; i++)
+        {
+            edgesPerPoints.Add(new HashSet<int>());
+            facesPerPoints.Add(new HashSet<int>());
+        }
+        foreach (var edge in mesh.edges)
+        {
+            edgesPerPoints[(int) edge.x].Add(countEdge);
+            edgesPerPoints[(int) edge.y].Add(countEdge);
+            facesPerPoints[(int) edge.x].Add((int) edge.z);
+            facesPerPoints[(int) edge.y].Add((int) edge.z);
+            if (edge.w != -1)
+            {
+                facesPerPoints[(int) edge.x].Add((int) edge.w);
+                facesPerPoints[(int) edge.y].Add((int) edge.w);
+            }
+
+            countEdge++;
+        }
     }
 }

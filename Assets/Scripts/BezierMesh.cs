@@ -2,6 +2,7 @@
 using System.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.Diagnostics;
 
 [ExecuteInEditMode]
 public class BezierMesh : MonoBehaviour
@@ -23,8 +24,21 @@ public class BezierMesh : MonoBehaviour
     public static Mesh GetBezierMesh(BezierCurve curve, float radius, int numSteps, int numSides)
     {
         QuadMeshData meshData = new QuadMeshData();
-
-        // Your implementation here...
+        for (int i = 0; i <= numSteps; i++)
+        {
+            float t = (float)i / numSteps;
+            Vector3 currPoint = curve.GetPoint(t);
+            Vector3 n = curve.GetNormal(t);
+            Vector3 b = curve.GetBinormal(t);
+            for (int j = 0; j < numSides; j++)
+            {
+                Vector3 circlePoint = GetUnitCirclePoint((360f / numSides) * j);
+                Vector3 scale = circlePoint * radius;
+                meshData.vertices.Add(scale);
+            }
+            
+        }
+        
 
         return meshData.ToUnityMesh();
     }
