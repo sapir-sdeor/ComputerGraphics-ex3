@@ -24,6 +24,7 @@ public class BezierMesh : MonoBehaviour
     public static Mesh GetBezierMesh(BezierCurve curve, float radius, int numSteps, int numSides)
     {
         QuadMeshData meshData = new QuadMeshData();
+
         for (int i = 0; i <= numSteps; i++)
         {
             float t = (float)i / numSteps;
@@ -34,12 +35,22 @@ public class BezierMesh : MonoBehaviour
             {
                 Vector3 circlePoint = GetUnitCirclePoint((360f / numSides) * j);
                 Vector3 scale = circlePoint * radius;
-                meshData.vertices.Add(scale);
+                Vector3 finalPoint = scale.x * b + scale.y * n + currPoint;
+                meshData.vertices.Add(finalPoint);
             }
-            
         }
-        
 
+        // creating the faces  
+        for (int i = 0; i < numSteps; i++){
+            for (int j = 0; j < numSides; j++){
+                Vector4 face = new Vector4(
+                    i * numSides + j,
+                    (i+1) * numSides + j,
+                    (i+1) * numSides + ((j + 1) % numSides),
+                    i * numSides + ((j + 1) % numSides));
+                meshData.quads.Add(face);
+            }            
+        }
         return meshData.ToUnityMesh();
     }
 

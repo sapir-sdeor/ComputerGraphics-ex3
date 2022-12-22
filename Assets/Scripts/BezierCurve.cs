@@ -24,7 +24,7 @@ public class BezierCurve : MonoBehaviour
     // Returns first derivative B'(t) for given parameter 0 <= t <= 1
     public Vector3 GetFirstDerivative(float t)
     {
-        return -3 * Mathf.Pow(1 - t, 2) * p0 + 3 * p1 * (3 * Mathf.Pow(t, 2)
+        return (-3) * Mathf.Pow(1 - t, 2) * p0 + 3 * p1 * (3 * Mathf.Pow(t, 2)
             - 4 * t + 1) + 3 * p2 * (-3 * Mathf.Pow(t, 2) + 2 * t) + 3 * Mathf.Pow(t, 2) * p3;
     }
 
@@ -43,32 +43,69 @@ public class BezierCurve : MonoBehaviour
     // Returns the Frenet normal to the curve at point B(t) for a given 0 <= t <= 1
     public Vector3 GetNormal(float t)
     {
-        return  Vector3.Cross(GetTangent(t), GetBinormal(t));
+        return  Vector3.Cross(GetTangent(t), GetBinormal(t)).normalized;
     }
 
     // Returns the Frenet binormal to the curve at point B(t) for a given 0 <= t <= 1
     public Vector3 GetBinormal(float t)
     {
         Vector3 _t = (GetFirstDerivative(t) + GetSecondDerivative(t)).normalized;
-        return Vector3.Cross(GetTangent(t), _t);
+        return Vector3.Cross(GetTangent(t), _t).normalized;
     }
 
     // Calculates the arc-lengths lookup table
     public void CalcCumLengths()
     {
-        // Your implementation here...
+        cumLengths = new float[numSteps + 1];
+        cumLengths[0] = 0;
+        for (int i = 1; i <= numSteps; i++)
+        {
+            float t_prev = (float)(i - 1) / numSteps;
+            float t = (float)i / numSteps;
+            Vector3 prevPoint = GetPoint(t_prev);
+            Vector3 currPoint = GetPoint(t);
+            float currDist = Vector3.Distance(prevPoint, currPoint);
+            cumLengths[i] = cumLengths[i - 1] + currDist;
+        }
     }
 
     // Returns the total arc-length of the Bezier curve
     public float ArcLength()
     {
-        return 0;
+        return cumLengths[numSteps];
     }
 
     // Returns approximate t s.t. the arc-length to B(t) = arcLength
     public float ArcLengthToT(float a)
     {
-        return 0;
+        // binary search for relavent index
+        int l = 0;
+        int r = numSteps;
+        while (l < r){
+            int m = (l + r) / 2;
+            if (a == cumLengths[m]){
+                return m;
+            } 
+            if (a > cumLengths[m]){ 
+
+                l = m + 1;
+            }
+            else{
+                r = m - 1;
+            }
+        }
+        if (a == cumLengths[l]){
+                return l;
+        }
+
+        // lower = index of closest cell with lower value
+        // higher = index of closest cell with higher value
+        int lower = (cumLengths[l] < a)? l : (l - 1);
+        int higher = lower + 1;
+
+        float proportion = Mathf.InverseLerp(cumLengths[lower], cumLengths[higher], a);
+        float t = Mathf.Lerp((float) lower / numSteps, (float) higher / numSteps, proportion);
+        return t;
     }
 
     // Start is called before the first frame update

@@ -37,6 +37,7 @@ public static class CatmullClark
         return new QuadMeshData(vertics, faces);
     }
 
+    // Returns a list of the new vertics.
     private static List<Vector3> getNewVertics(CCMeshData meshData, Dictionary<Vector2, int> edgesIndices)
     {
         List<Vector3> vertics = meshData.newPoints;
@@ -54,6 +55,8 @@ public static class CatmullClark
         return vertics;
     }
 
+
+    // Returns a list of the new faces.
     private static List<Vector4> getNewFaces(CCMeshData meshData, Dictionary<Vector2, int> edgesIndices, int facePointsStrtIdx)
     {
         List<Vector4> faces = new List<Vector4>();
@@ -81,6 +84,7 @@ public static class CatmullClark
     }
 
 
+    // given two integers, returns them as a vector2 with where vector2[0] <= vector2[1]
     private static Vector2 orderPoints(int p1, int p2)
     {
         if (p1 > p2) (p1, p2) = (p2, p1);
@@ -155,10 +159,12 @@ public static class CatmullClark
     // Returns a list of new locations of the original points for the given CCMeshData, as described in the CC algorithm 
     public static List<Vector3> GetNewPoints(CCMeshData mesh)
     {
+        // each cell i contains the indices of the edges/faces that the i'th vertic belongs to.
         List<HashSet<int>> edgesPerPoints = new List<HashSet<int>>();
         List<HashSet<int>> facesPerPoints = new List<HashSet<int>>();
+
         List<Vector3> newPoints = new List<Vector3>();
-        CreatePerPoints(mesh, edgesPerPoints, facesPerPoints);
+        findFacesAndEdges(mesh, edgesPerPoints, facesPerPoints);
         for (int i=0; i < mesh.points.Count; i++)
         {
             int n = edgesPerPoints[i].Count;
@@ -183,7 +189,8 @@ public static class CatmullClark
         return newPoints;
     }
 
-    private static void CreatePerPoints(CCMeshData mesh, List<HashSet<int>> edgesPerPoints, List<HashSet<int>> facesPerPoints)
+    // for each vertex we find all of the edges and faces that it is part of and add their indices to the relevant list.
+    private static void findFacesAndEdges(CCMeshData mesh, List<HashSet<int>> edgesPerPoints, List<HashSet<int>> facesPerPoints)
     {
         int countEdge = 0;
         for (int i = 0; i < mesh.points.Count; i++)
@@ -197,7 +204,7 @@ public static class CatmullClark
             edgesPerPoints[(int) edge.y].Add(countEdge);
             facesPerPoints[(int) edge.x].Add((int) edge.z);
             facesPerPoints[(int) edge.y].Add((int) edge.z);
-            if (edge.w != -1)
+            if (edge.w != -1) 
             {
                 facesPerPoints[(int) edge.x].Add((int) edge.w);
                 facesPerPoints[(int) edge.y].Add((int) edge.w);
