@@ -25,6 +25,7 @@ public class Chain : MonoBehaviour
         {
             Destroy(link);
         }
+        curve.CalcCumLengths();
         float arcLength = curve.ArcLength();
         float linksNum = arcLength / LinkSize;
         for (float i=0; i < linksNum; i++){
@@ -35,8 +36,6 @@ public class Chain : MonoBehaviour
             GameObject chainLink = CreateChainLink(position, forward, up); 
             chainLinks.Add(chainLink);
         }
-
-        
     }
 
     // Instantiates & returns a ChainLink at given position, oriented towards the given forward and up vectors
